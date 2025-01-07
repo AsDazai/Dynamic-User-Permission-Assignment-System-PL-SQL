@@ -218,7 +218,7 @@ COMMIT;
 UPDATE employees SET department = 'Finance' WHERE employee_id = 1;
 COMMIT;
 
-DELETE FROM employees WHERE employee_id = 1;   -- userr tries to delete id=2 = user
+DELETE FROM employees WHERE employee_id = 1;   
 COMMIT;
 
 
