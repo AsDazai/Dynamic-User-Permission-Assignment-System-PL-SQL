@@ -7,6 +7,8 @@ CREATE TABLE users (
     status VARCHAR2(20) DEFAULT 'active'  
 );
 
+drop table users;
+
 --creating roles tables
 CREATE TABLE roles (
     role_id NUMBER PRIMARY KEY,
@@ -24,6 +26,8 @@ CREATE TABLE permissions (
     permission_id NUMBER PRIMARY KEY,
     permission_name VARCHAR2(50) NOT NULL
 );
+
+drop table permissions;
 
 --insert data into permissions
 INSERT INTO permissions (permission_id, permission_name) VALUES (1, 'SELECT');
@@ -61,16 +65,37 @@ CREATE TABLE user_roles (
     FOREIGN KEY (role_id) REFERENCES roles(role_id)
 );
 
+
+CREATE SEQUENCE user_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NOCACHE
+    NOCYCLE;
+
+
 --user role info
-INSERT INTO users (username, password, email) 
-VALUES ('john_doe', 'password123', 'john@example.com');
-INSERT INTO users (username, password, email) 
-VALUES ('jane_admin', 'adminpass', 'jane@example.com');
+INSERT INTO users (user_id, username, password, email) 
+VALUES (user_id_seq.NEXTVAL, 'john_doe', 'password123', 'john@example.com');
+
+INSERT INTO users (user_id, username, password, email) 
+VALUES (user_id_seq.NEXTVAL, 'jane_admin', 'adminpass', 'jane@example.com');
 
 INSERT INTO user_roles (user_id, role_id) 
 VALUES (1, 1);  
 INSERT INTO user_roles (user_id, role_id) 
 VALUES (2, 2);  
+
+
+
+CREATE SEQUENCE user_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NOCACHE
+    NOCYCLE;
+
+
+
+
 
 
 
@@ -84,21 +109,30 @@ CREATE OR REPLACE PROCEDURE insert_user(
     v_user_id NUMBER;
     v_role_id NUMBER;
 BEGIN  
-    INSERT INTO users (username, password, email)
-    VALUES (p_username, p_password, p_email)
-    RETURNING user_id INTO v_user_id;
+    -- Use sequence to generate user_id
+    v_user_id := user_id_seq.NEXTVAL;
     
+    -- Insert the user
+    INSERT INTO users (user_id, username, password, email)
+    VALUES (v_user_id, p_username, p_password, p_email);
+    
+    -- Get the role_id for the given role name
     SELECT role_id
     INTO v_role_id
     FROM roles
     WHERE role_name = p_role_name;
 
+    -- Insert into user_roles table
     INSERT INTO user_roles (user_id, role_id)
     VALUES (v_user_id, v_role_id);
 
+    -- Commit the transaction
     COMMIT;
+
+    -- Output success message
     DBMS_OUTPUT.PUT_LINE('User inserted successfully with ID: ' || v_user_id);
 END;
+
 
 --insert user
 EXEC insert_user('mike_employee', 'emp123', 'mike@example.com', 'Employee');
@@ -107,7 +141,6 @@ EXEC insert_user('mike_employee', 'emp123', 'mike@example.com', 'Employee');
 
 
 --function to check user permissions that which permissions user have ?
-
 CREATE OR REPLACE FUNCTION check_permission(
     p_username IN VARCHAR2,
     p_permission IN VARCHAR2
@@ -116,13 +149,15 @@ CREATE OR REPLACE FUNCTION check_permission(
     v_role_id NUMBER;
     v_permission_id NUMBER;
 BEGIN
-    SELECT user_id, role_id
+    -- Disambiguating column names by using table aliases
+    SELECT u.user_id, ur.role_id
     INTO v_user_id, v_role_id
     FROM users u
     JOIN user_roles ur ON u.user_id = ur.user_id
     JOIN roles r ON ur.role_id = r.role_id
     WHERE u.username = p_username;
 
+    -- Disambiguating column name for permission_id
     SELECT permission_id
     INTO v_permission_id
     FROM permissions
@@ -131,11 +166,12 @@ BEGIN
     DECLARE
         v_permission_exists NUMBER;
     BEGIN
+        -- Checking for role_permission match
         SELECT COUNT(*)
         INTO v_permission_exists
-        FROM role_permissions
-        WHERE role_id = v_role_id
-          AND permission_id = v_permission_id;
+        FROM role_permissions rp
+        WHERE rp.role_id = v_role_id
+          AND rp.permission_id = v_permission_id;
 
         IF v_permission_exists = 0 THEN
             RETURN 'Permission Denied';
@@ -159,14 +195,30 @@ SELECT check_permission('john_doe', 'INSERT') FROM dual;
 --ID will differ user and admin
 
 
+CREATE TABLE employees (
+    employee_id NUMBER PRIMARY KEY,    
+    employee_name VARCHAR2(100),       
+    department VARCHAR2(50)           
+);
+
+
+
+
+
 --for admin
 INSERT INTO employees (employee_id, employee_name, department) VALUES (1, 'Alice', 'HR');
+INSERT INTO employees (employee_id, employee_name, department) VALUES (2, 'bob', 'PR');
+INSERT INTO employees (employee_id, employee_name, department) VALUES (3, 'marry', 'MR');
+INSERT INTO employees (employee_id, employee_name, department) VALUES (4, 'cory', 'KR');
+INSERT INTO employees (employee_id, employee_name, department) VALUES (5, 'alexa', 'AR');
+INSERT INTO employees (employee_id, employee_name, department) VALUES (6, 'minon', 'ZR');
+
 COMMIT;
 
 UPDATE employees SET department = 'Finance' WHERE employee_id = 1;
 COMMIT;
 
-DELETE FROM employees WHERE employee_id = 1;
+DELETE FROM employees WHERE employee_id = 1;   -- userr tries to delete id=2 = user
 COMMIT;
 
 
@@ -175,10 +227,8 @@ COMMIT;
 --for user
 SELECT * FROM employees;
 
-DELETE FROM employees WHERE employee_id = 1;
+DELETE FROM employees WHERE employee_id = 2;
 COMMIT;
-
-
 
 
 
